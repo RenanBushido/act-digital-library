@@ -27,14 +27,15 @@ Spec Driven Development com OpenSpec. Uma change por capacidade.
 
 ## Estrutura
 
-Projeto único e pastas por feature. `src/Library.Api/Features/{Books,Loans,Users,Audit}`, `src/Library.Api/Infrastructure`, `src/Library.Api/Extensions`. Sem camadas Application/Domain separadas - o foco neste projeto é transacional, não arquitetural.
-
-`Extensions` reúne os métodos de registro de serviço (`IServiceCollection`) que configuram a API — um arquivo por área de configuração (ex.: `DatabaseExtensions.cs`, `CachingExtensions.cs`, `ObservabilityExtensions.cs`). Objetivo: manter o `Program.cs` como uma lista curta de chamadas (`builder.Services.AddApiDatabase(...)`, `AddApiCaching(...)`) à medida que mais serviços são adicionados, em vez de crescer indefinidamente. `Infrastructure` continua reservada para os componentes de runtime em si (`LibraryDbContext`, `DomainException`); `Extensions` é só a cola de composição/DI sobre eles.
+Projeto único, sem projetos separados por camada e sem regras de dependência entre elas. Pastas: `Domain/` para entidades e value objects compartilhados, `Features/` `src/Library.Api/Features/{Books,Loans,Users,Audit}` para casos de uso, `Infrastructure/` `src/Library.Api/Infrastructure` para persistência, `Common/` para o que atravessa features. O foco neste projeto é transacional, não arquitetural.
+Na pasta `src/Library.Api/Extensions` `Extensions` reúne os métodos de registro de serviço (`IServiceCollection`) que configuram a API — um arquivo por área de configuração (ex.: `DatabaseExtensions.cs`, `CachingExtensions.cs`, `ObservabilityExtensions.cs`). Objetivo: manter o `Program.cs` como uma lista curta de chamadas (`builder.Services.AddApiDatabase(...)`, `AddApiCaching(...)`) à medida que mais serviços são adicionados, em vez de crescer indefinidamente. `Infrastructure` continua reservada para os componentes de runtime em si (`AppDbContext` e as `IEntityTypeConfiguration`, em `Infrastructure/Persistence/`); `Extensions` é só a cola de composição/DI sobre eles. `DomainException` mora em `Common/`, junto com `Result`/catálogo de erros — é o que "atravessa features", não um componente de runtime específico.
 
 ## Modelo de disponibilidade
 
 `books.available_copies` é um **contador**, não é uma projeção e nem uma tabela de exemplares. Constraint no banco: `CHECK (available_copies >= 0 AND available_copies <= total_copies)`.
 A constraint é a garantia independente da lógica — nunca a remova para "simplificar".
+`DELETE /books/{id}` desativa (`is_active = false`) e nunca apaga. Livro inativo não aceita
+novos empréstimos, mas mantém histórico e aceita devolução dos exemplares já emprestados.
 
 ## Concorrência
 
@@ -87,10 +88,13 @@ Toda resposta de erro é `application/problem+json` com extensões `correlationI
 | `Idempotency-Key` ausente | 400 | `idempotency-key-required` |
 | Livro/usuário/empréstimo inexistente | 404 | `book-not-found`, `user-not-found`, `loan-not-found` |
 | Sem exemplar disponível | 409 | `no-copy-available` |
+| Desativação de livro com empréstimo ativo | 409 | `book-has-active-loans` |
 | Livro inativo | 409 | `book-inactive` |
 | Empréstimo já devolvido/cancelado | 409 | `loan-not-active` |
 | Exclusão de livro com histórico | 409 | `book-has-history` |
 | Requisição idempotente em voo | 409 | `request-in-flight` |
+| Redução de exemplares maior que o disponível | 409 | `insufficient-available-copies` |
+| ISBN já cadastrado (após normalização) | 409 | `book-isbn-duplicate` |
 | Mesma chave, corpo diferente | 422 | `idempotency-key-reuse` |
 
 Validação: `AddValidation()` nativo na borda (formato, obrigatoriedade, faixas);
@@ -151,3 +155,16 @@ Manifests K8s com `Deployment`, `Service`, probes apontando para `/health/live` 
 - Provider InMemory do EF Core em testes — não modela locks.
 - `MediatR`, `AutoMapper` ou qualquer dependência não listada, sem justificar em
 `design.md`.
+
+## Organização do código
+
+- `Domain/<Entidade>/` — entidades e value objects. Invariantes no construtor ou em factory.
+- `Features/<Feature>/<CasoDeUso>.cs` — um arquivo por caso de uso, contendo request, validação e handler. Handler é `static`, recebe dependências por parâmetro.
+- `Features/<Feature>/<Feature>Endpoints.cs` — apenas roteamento com `MapGroup`. Sem lógica.
+- `Features/<Feature>/Contracts/` — DTOs de resposta, com factory `From(entidade)`.
+- `Common/` — o que atravessa features: Result, catálogo de erros, paginação, correlação.
+- `Infrastructure/Persistence/` — `AppDbContext` e `IEntityTypeConfiguration` por entidade.
+
+Não crie interface com implementação única. Abstração só onde há substituição real
+(`TimeProvider`, `IDistributedCache`). Sem `IRepository`, sem `IUnitOfWork`, sem `IService`:
+`DbSet` já é repositório e `DbContext` já é unidade de trabalho.

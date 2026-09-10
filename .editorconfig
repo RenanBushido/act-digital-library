@@ -34,6 +34,9 @@ insert_final_newline = false
 #### .NET Coding Conventions ####
 dotnet_diagnostic.CDT1003.severity = none
 dotnet_diagnostic.RCS1170.severity = none
+dotnet_diagnostic.IDE0053.severity = none
+dotnet_diagnostic.RCS1021.severity = none
+dotnet_diagnostic.ASP0027.severity = none
 [*.{cs,vb}]
 
 # Organize usings

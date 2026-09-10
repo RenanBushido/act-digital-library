@@ -1,6 +1,10 @@
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddApiDatabase(builder.Configuration);
+builder.Services.AddApiCaching(builder.Configuration);
+builder.Services.AddApiProblemDetails();
+builder.Services.AddValidation();
 
 builder.Services.AddOpenApi();
 
@@ -11,6 +15,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+app.UseExceptionHandler();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+
+app.MapBooksEndpoints();
 
 app.Run();
+
+public partial class Program;

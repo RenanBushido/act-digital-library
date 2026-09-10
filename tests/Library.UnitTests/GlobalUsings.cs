@@ -1,4 +1,6 @@
-global using Library.Api.Features.Books;
-global using Library.Api.Features.Users;
-global using Library.Api.Infrastructure;
+global using Library.Api.Common;
+global using Library.Api.Domain.Book;
+global using Library.Api.Domain.User;
 global using Library.UnitTests.TestSupport;
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.Extensions.Logging.Abstractions;

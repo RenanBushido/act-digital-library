@@ -1,6 +1,15 @@
+global using Library.Api.Common;
+global using Library.Api.Common.Errors;
+global using Library.Api.Common.Pagination;
 global using Library.Api.Features.Books;
-global using Library.Api.Features.Users;
-global using Library.Api.Infrastructure;
+global using Library.Api.Features.Books.Contracts;
+global using Library.Api.Domain.Book;
+global using Library.Api.Domain.User;
+global using Library.Api.Infrastructure.Persistence;
 global using Library.Api.Extensions;
 global using Microsoft.EntityFrameworkCore;
 global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using Microsoft.Extensions.Caching.Distributed;
+global using Npgsql;
+global using System.ComponentModel.DataAnnotations;
+global using System.Text.Json;

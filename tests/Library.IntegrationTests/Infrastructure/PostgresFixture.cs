@@ -21,13 +21,13 @@ public sealed class PostgresFixture : IAsyncLifetime
         await _container.DisposeAsync();
     }
 
-    public LibraryDbContext CreateDbContext()
+    public AppDbContext CreateDbContext()
     {
-        var options = new DbContextOptionsBuilder<LibraryDbContext>()
+        var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(_container.GetConnectionString())
             .Options;
 
-        return new LibraryDbContext(options);
+        return new AppDbContext(options);
     }
 
     public async Task ResetAsync()
