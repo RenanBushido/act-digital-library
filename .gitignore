@@ -481,3 +481,6 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 .env
+
+# Prompts de Cada Proposal do SSD
+docs/

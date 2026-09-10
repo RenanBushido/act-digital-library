@@ -12,7 +12,7 @@ Executa em 2 a 11 réplicas: **nenhuma garantia de correção pode depender de e
 - Redis
 - xUnit + Testcontainers
 - Docker + Docker Compose
-- SSD (Spec Driven Development) + Claude Code
+- SDD (Spec Driven Development) + Claude Code
 - OpenTelemetry
 
 ## Processo
@@ -23,6 +23,7 @@ Spec Driven Development com OpenSpec. Uma change por capacidade.
 - Todo cenário `GIVEN/WHEN/THEN` da spec vira um teste. Cenário sem teste é change incompleta.
 - Não implemente nada fora do escopo declarado em `tasks.md`. Refatoração oportunista pertence a outra change.
 - Antes de propor: leia `openspec/specs/` para não contradizer o que já está fixado.
+- Toda change passa por duas revisões com a skill `sdd-review`: a especificação antes do `apply`, o código antes do `archive`.
 
 ## Estrutura
 
@@ -48,11 +49,11 @@ Devolução e cancelamento seguem o mesmo desenho, incrementando o contador.
 
 ## Idempotência
 
-`POST /loans` exige header `Idempotency-Key`; ausente => HttpStatusCode 400.
+`POST /loans` exige header `Idempotency-Key`; ausente => 400.
 Tabela `idempotency_keys`, PK `(key, endpoint)`, com `request_hash`, `state`, `status_code`,
 `response_body`, `expires_at_utc`. Reserve a chave com `INSERT … ON CONFLICT DO NOTHING` **antes** de processar. Gravar a resposta na **mesma transação** do empréstimo.
-Repetição bem-sucedida devolve a resposta original com header `Idempotency-Replayed: true` — nunca HttpStatusCode 409.
-Implementado um middleware filter como `IEndpointFilter`, aplicado somente no endpoint `POST /loans`.
+Repetição bem-sucedida devolve a resposta original com header `Idempotency-Replayed: true` — nunca 409.
+Implementado como `IEndpointFilter`, aplicado somente ao endpoint `POST /loans` — não como middleware global.
 
 ## Auditoria
 
@@ -104,7 +105,7 @@ Em Docker e Kubernetes, quem irá migrar é o serviço `migrator` — mesma imag
 
 Middleware de correlação: aceita `X-Correlation-Id` do cliente ou gera um. Entra no escopo de log e volta no header de resposta e é gravado em `audit_events.correlation_id` e no **Problem Details**.
 
-Criar `Library.Loans` exatamente com estes nomes:
+Criar o `Meter` `Library.Loans`, com exatamente estes nomes:
 
 - `library.loans.created` (Counter)
 - `library.loans.rejected` (Counter, tag `reason`: `unavailable` | `book_inactive` | `book_not_found`)
@@ -135,16 +136,16 @@ Manifests K8s com `Deployment`, `Service`, probes apontando para `/health/live` 
 - `TimeProvider` injetado. **Nunca** `DateTime.UtcNow` ou `DateTime.Now` direto.
 - Todo método de I/O é `async` e recebe `CancellationToken`, propagado do endpoint até a última chamada de EF Core e Redis.
 - `TreatWarningsAsErrors` está ligado: warning quebra o build.
-- Nullable habilitado; sem `!` para não notificar o compilador.
+- Nullable habilitado; sem `!` para silenciar o compilador.
 - Configuração por `appsettings.*.json` e variáveis de ambiente. Nenhum segredo no repositório.
 
 ## Proibições
 
-- `rowversion` / `byte[] RowVersion` — é SQL Server. Foi adotado o: `xmin` ou `UPDATE` condicional, pois o banco de dados sugerido foi PostgreSQL.
+- `rowversion` / `byte[] RowVersion` — é SQL Server, e o banco adotado é PostgreSQL. A estratégia de concorrência deste projeto está fixada na seção **Concorrência**: `UPDATE` condicional atômico.
 - `lock`, `SemaphoreSlim`, dicionário estático ou `IMemoryCache` para exclusão mútua ou idempotência.
 - Lock distribuído no Redis para decidir empréstimo.
 - Ler cache no caminho de decisão de empréstimo.
 - `DELETE` físico de livro, empréstimo ou evento de auditoria.
-- Provider InMemory do EF Core em testes — não modelar locks.
+- Provider InMemory do EF Core em testes — não modela locks.
 - `MediatR`, `AutoMapper` ou qualquer dependência não listada, sem justificar em
 `design.md`.
