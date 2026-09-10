@@ -27,7 +27,9 @@ Spec Driven Development com OpenSpec. Uma change por capacidade.
 
 ## Estrutura
 
-Projeto único e pastas por feature. `src/Library.Api/Features/{Books,Loans,Users,Audit}`, `src/Library.Api/Infrastructure`. Sem camadas Application/Domain separadas - o foco neste projeto é transacional, não arquitetural.
+Projeto único e pastas por feature. `src/Library.Api/Features/{Books,Loans,Users,Audit}`, `src/Library.Api/Infrastructure`, `src/Library.Api/Extensions`. Sem camadas Application/Domain separadas - o foco neste projeto é transacional, não arquitetural.
+
+`Extensions` reúne os métodos de registro de serviço (`IServiceCollection`) que configuram a API — um arquivo por área de configuração (ex.: `DatabaseExtensions.cs`, `CachingExtensions.cs`, `ObservabilityExtensions.cs`). Objetivo: manter o `Program.cs` como uma lista curta de chamadas (`builder.Services.AddApiDatabase(...)`, `AddApiCaching(...)`) à medida que mais serviços são adicionados, em vez de crescer indefinidamente. `Infrastructure` continua reservada para os componentes de runtime em si (`LibraryDbContext`, `DomainException`); `Extensions` é só a cola de composição/DI sobre eles.
 
 ## Modelo de disponibilidade
 
