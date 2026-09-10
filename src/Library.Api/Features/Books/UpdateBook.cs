@@ -41,7 +41,7 @@ public static class UpdateBook
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await CacheReadThrough.RemoveAsync(cache, logger, GetBookAvailability.CacheKey(id), cancellationToken);
-        await CacheReadThrough.RemoveAsync(cache, logger, ListBooks.CacheKey(ListBooks.DefaultPage, ListBooks.DefaultPageSize), cancellationToken);
+        await CacheReadThrough.RemoveAsync(cache, logger, ListBooks.CacheKey(PaginationDefaults.DefaultPage, PaginationDefaults.DefaultPageSize), cancellationToken);
 
         return TypedResults.Ok(BookResponse.From(book));
     }

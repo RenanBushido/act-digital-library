@@ -2,10 +2,6 @@ namespace Library.Api.Features.Books;
 
 public static class ListBooks
 {
-    public const int DefaultPage = 1;
-    public const int DefaultPageSize = 20;
-    public const int MaxPageSize = 100;
-
     public static string CacheKey(int page, int pageSize) => $"books:list:page={page}:size={pageSize}";
 
     public static async Task<IResult> HandleAsync(
@@ -16,8 +12,8 @@ public static class ListBooks
         ILogger<BooksLog> logger,
         CancellationToken cancellationToken)
     {
-        var resolvedPage = page is > 0 ? page.Value : DefaultPage;
-        var resolvedPageSize = pageSize is > 0 and <= MaxPageSize ? pageSize.Value : DefaultPageSize;
+        var resolvedPage = page is > 0 ? page.Value : PaginationDefaults.DefaultPage;
+        var resolvedPageSize = pageSize is > 0 and <= PaginationDefaults.MaxPageSize ? pageSize.Value : PaginationDefaults.DefaultPageSize;
 
         var response = await CacheReadThrough.GetOrCreateAsync(
             cache,

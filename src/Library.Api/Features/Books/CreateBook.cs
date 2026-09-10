@@ -41,7 +41,7 @@ public static class CreateBook
         await CacheReadThrough.RemoveAsync(
             cache,
             logger,
-            ListBooks.CacheKey(ListBooks.DefaultPage, ListBooks.DefaultPageSize),
+            ListBooks.CacheKey(PaginationDefaults.DefaultPage, PaginationDefaults.DefaultPageSize),
             cancellationToken);
 
         return TypedResults.Created($"/books/{book.Id}", BookResponse.From(book));

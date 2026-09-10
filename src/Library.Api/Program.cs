@@ -5,6 +5,7 @@ builder.Services.AddApiDatabase(builder.Configuration);
 builder.Services.AddApiCaching(builder.Configuration);
 builder.Services.AddApiProblemDetails();
 builder.Services.AddValidation();
+builder.Services.Configure<LoanOptions>(builder.Configuration.GetSection(LoanOptions.SectionName));
 
 builder.Services.AddOpenApi();
 
@@ -20,6 +21,8 @@ app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.MapBooksEndpoints();
+app.MapLoansEndpoints();
+app.MapUsersEndpoints();
 
 app.Run();
 

@@ -1,8 +1,13 @@
 global using Library.Api.Common;
+global using Library.Api.Domain.Audit;
 global using Library.Api.Domain.Book;
+global using Library.Api.Domain.Loan;
 global using Library.Api.Domain.User;
 global using Library.Api.Features.Books;
 global using Library.Api.Features.Books.Contracts;
+global using Library.Api.Features.Loans;
+global using Library.Api.Features.Loans.Contracts;
+global using Library.Api.Features.Users;
 global using Library.Api.Infrastructure.Persistence;
 global using Library.IntegrationTests.Infrastructure;
 global using Microsoft.AspNetCore.Hosting;

@@ -1,6 +1,12 @@
 global using Library.Api.Common;
+global using Library.Api.Common.Errors;
+global using Library.Api.Domain.Audit;
 global using Library.Api.Domain.Book;
+global using Library.Api.Domain.Loan;
 global using Library.Api.Domain.User;
+global using Library.Api.Features.Loans;
 global using Library.UnitTests.TestSupport;
 global using Microsoft.AspNetCore.Http;
+global using Microsoft.AspNetCore.Http.HttpResults;
 global using Microsoft.Extensions.Logging.Abstractions;
+global using System.Text.Json;

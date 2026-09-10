@@ -51,7 +51,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await using var scope = Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE books, users RESTART IDENTITY CASCADE;");
+        await dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE books, users, loans, audit_events RESTART IDENTITY CASCADE;");
     }
 
     public async Task StopRedisAsync() => await _redis.StopAsync();

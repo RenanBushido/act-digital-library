@@ -9,6 +9,7 @@ public static class BooksEndpoints
         group.MapGet("/", ListBooks.HandleAsync);
         group.MapGet("/{id:guid}", GetBook.HandleAsync);
         group.MapGet("/{id:guid}/availability", GetBookAvailability.HandleAsync);
+        group.MapGet("/{id:guid}/history", GetBookHistory.HandleAsync);
         group.MapPost("/", CreateBook.HandleAsync);
         group.MapPatch("/{id:guid}", UpdateBook.HandleAsync);
         group.MapDelete("/{id:guid}", DeactivateBook.HandleAsync);

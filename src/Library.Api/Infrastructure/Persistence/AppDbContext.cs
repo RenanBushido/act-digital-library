@@ -4,6 +4,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 {
     public DbSet<Book> Books => Set<Book>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<Loan> Loans => Set<Loan>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
