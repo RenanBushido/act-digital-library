@@ -13,12 +13,7 @@ public readonly record struct Isbn
     {
         var normalized = Normalize(rawValue);
 
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            throw new DomainException("ISBN não pode ser vazio.");
-        }
-
-        return new Isbn(normalized);
+        return string.IsNullOrWhiteSpace(normalized) ? throw new DomainException("ISBN cannot be empty.") : new Isbn(normalized);
     }
 
     public static string Normalize(string? rawValue) =>

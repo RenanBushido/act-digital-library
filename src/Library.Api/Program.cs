@@ -1,9 +1,8 @@
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
+builder.Services.AddApiDatabase(builder.Configuration);
 
-builder.Services.AddDbContext<LibraryDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
 

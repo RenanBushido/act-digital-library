@@ -13,12 +13,7 @@ public readonly record struct Email
     {
         var normalized = Normalize(rawValue);
 
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            throw new DomainException("E-mail não pode ser vazio.");
-        }
-
-        return new Email(normalized);
+        return string.IsNullOrWhiteSpace(normalized) ? throw new DomainException("E-mail cannot be empty.") : new Email(normalized);
     }
 
     public static string Normalize(string? rawValue) =>

@@ -44,22 +44,22 @@ public sealed class Book
     {
         if (string.IsNullOrWhiteSpace(title))
         {
-            throw new DomainException("Título não pode ser vazio.");
+            throw new DomainException("Title cannot be empty.");
         }
 
         if (string.IsNullOrWhiteSpace(author))
         {
-            throw new DomainException("Autor não pode ser vazio.");
+            throw new DomainException("Author cannot be empty.");
         }
 
         if (totalCopies <= 0)
         {
-            throw new DomainException("Total de exemplares deve ser maior que zero.");
+            throw new DomainException("Total copies must be greater than zero.");
         }
 
         if (availableCopies < 0 || availableCopies > totalCopies)
         {
-            throw new DomainException("Exemplares disponíveis deve estar entre 0 e o total de exemplares.");
+            throw new DomainException("Available copies must be between 0 and the total number of copies.");
         }
 
         var normalizedIsbn = Isbn.Create(isbn);

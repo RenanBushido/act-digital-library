@@ -1,11 +1,7 @@
 namespace Library.Api.Infrastructure;
 
-public sealed class LibraryDbContext : DbContext
+public sealed class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbContext(options)
 {
-    public LibraryDbContext(DbContextOptions<LibraryDbContext> options) : base(options)
-    {
-    }
-
     public DbSet<Book> Books => Set<Book>();
     public DbSet<User> Users => Set<User>();
 

@@ -21,7 +21,7 @@ public sealed class User
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new DomainException("Nome não pode ser vazio.");
+            throw new DomainException("Name cannot be empty.");
         }
 
         var normalizedEmail = Email.Create(email);
