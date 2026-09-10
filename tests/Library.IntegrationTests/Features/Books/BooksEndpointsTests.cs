@@ -1,16 +1,10 @@
 namespace Library.IntegrationTests.Features.Books;
 
 [Collection("Api")]
-public class BooksEndpointsTests : IAsyncLifetime
+public class BooksEndpointsTests(ApiFixture fixture) : IAsyncLifetime
 {
-    private readonly ApiFixture _fixture;
-    private readonly HttpClient _client;
-
-    public BooksEndpointsTests(ApiFixture fixture)
-    {
-        _fixture = fixture;
-        _client = fixture.CreateClient();
-    }
+    private readonly ApiFixture _fixture = fixture;
+    private readonly HttpClient _client = fixture.CreateClient();
 
     public Task InitializeAsync() => _fixture.ResetAsync();
 
