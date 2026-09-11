@@ -169,8 +169,15 @@ Invariantes no construtor da entidade (não emprestar livro inativo, não devolv
 
 Todas as colunas de data e hora são `timestamptz`, sempre UTC.
 As migrations ficam em `src/Library.Api/Migrations`.
-`MigrateAsync()` no startup **somente** quando `ASPNETCORE_ENVIRONMENT=Development`.
-Em Docker e Kubernetes quem migra é o serviço `migrator` — mesma imagem, argumento `--migrate-only`.
+
+Quem aplica migration é decidido por configuração, não pelo nome do ambiente:
+
+- `Database:MigrateOnStartup` (bool) — `true` apenas no `appsettings.Development.json`, para conveniência de quem roda com `dotnet run`.
+- Em Docker e Kubernetes a flag é `false` e quem migra é o `migrator`: a **mesma imagem** executada com o argumento `--migrate-only`, que aplica as migrations e encerra com código 0.
+- No Kubernetes o `migrator` é um `Job`, não um initContainer: initContainer rodaria uma vez por pod.
+
+Pool de conexões dimensionado para o número de réplicas: `Maximum Pool Size=8`.
+Com 11 réplicas são 88 conexões, abaixo do `max_connections` padrão do PostgreSQL (100), com folga para o `migrator` e acesso administrativo. PgBouncer fica como evolução.
 
 ## Observabilidade
 
@@ -230,8 +237,23 @@ Três testes que provam os requisitos centrais do desafio:
 
 ## Empacotamento
 
-Dockerfile multi-stage; imagem final `mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled`,`USER $APP_UID`.
-Manifests K8s com `Deployment`, `Service`, probes em `/health/live` e `/health/ready`, `requests`/`limits` de CPU e memória, config e segredos por referência sem valores reais.
+Dockerfile multi-stage. Imagem final `mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled`, com `USER $APP_UID`.
+
+A imagem chiseled não possui shell nem `curl`. Portanto:
+
+- não definir `healthcheck` no Compose para o serviço `api` usando `CMD-SHELL`: falha em silêncio
+- para depuração interativa, usar a variante `-extra` da imagem
+- os probes do Kubernetes não são afetados: `httpGet` é executado pelo kubelet
+
+Manifests Kubernetes em YAML puro (sem Helm), em `k8s/`, com no mínimo:
+
+- `Deployment` com `replicas`, `requests`/`limits` de CPU e memória
+- `livenessProbe` em `/health/live` e `readinessProbe` em `/health/ready`
+- `terminationGracePeriodSeconds` alinhado ao `ShutdownTimeout` da aplicação (ambos 30 s, padrão)
+- `Service` do tipo ClusterIP
+- `ConfigMap` com a configuração não sensível
+- `Secret` referenciado por `envFrom`, versionado apenas como `secret.example.yaml` com placeholders. Valores reais nunca entram no repositório.
+- `Job` do `migrator`, com a ordem de aplicação documentada no README
 
 ## Convenções de código
 
