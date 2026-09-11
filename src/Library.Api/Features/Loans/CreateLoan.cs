@@ -14,6 +14,8 @@ public static class CreateLoan
         IOptions<LoanOptions> loanOptions,
         IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
         BookCache bookCache,
+        LoanMetrics loanMetrics,
+        ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
         if (request.BookId == Guid.Empty || request.UserId == Guid.Empty)
@@ -24,12 +26,14 @@ public static class CreateLoan
         var book = await dbContext.Books.SingleOrDefaultAsync(b => b.Id == request.BookId, cancellationToken);
         if (book is null)
         {
+            loanMetrics.RecordRejected(LoanMetrics.ReasonBookNotFound);
             return LoanErrors.BookNotFound(request.BookId).ToProblem();
         }
 
         var userExists = await dbContext.Users.AnyAsync(u => u.Id == request.UserId, cancellationToken);
         if (!userExists)
         {
+            loanMetrics.RecordRejected(LoanMetrics.ReasonUserNotFound);
             return LoanErrors.UserNotFound(request.UserId).ToProblem();
         }
 
@@ -41,9 +45,14 @@ public static class CreateLoan
 
         if (affected == 0)
         {
-            return book.IsActive
-                ? LoanErrors.NoCopyAvailable(request.BookId).ToProblem()
-                : LoanErrors.BookInactive(request.BookId).ToProblem();
+            if (book.IsActive)
+            {
+                loanMetrics.RecordRejected(LoanMetrics.ReasonUnavailable);
+                return LoanErrors.NoCopyAvailable(request.BookId).ToProblem();
+            }
+
+            loanMetrics.RecordRejected(LoanMetrics.ReasonBookInactive);
+            return LoanErrors.BookInactive(request.BookId).ToProblem();
         }
 
         var loan = Loan.Create(request.BookId, request.UserId, loanOptions.Value.DueDays, timeProvider);
@@ -86,6 +95,17 @@ public static class CreateLoan
                 cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
+
+        loanMetrics.RecordCreated();
+
+        var availableAfter = book.AvailableCopies - 1;
+        logger.LogInformation(
+            "Loan {LoanId} created for book {BookId} and user {UserId}, correlation {CorrelationId}, available copies after {AvailableAfter}",
+            loan.Id,
+            loan.BookId,
+            loan.UserId,
+            correlationId,
+            availableAfter);
 
         await bookCache.InvalidateAvailabilityAsync(request.BookId, cancellationToken);
         await bookCache.InvalidateListAsync(cancellationToken);

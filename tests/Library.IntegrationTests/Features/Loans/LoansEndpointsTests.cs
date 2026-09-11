@@ -392,6 +392,30 @@ public class LoansEndpointsTests(ApiFixture fixture) : IAsyncLifetime
         Assert.Equal(0, count);
     }
 
+    [Fact]
+    public async Task CreateLoan_error_response_still_carries_correlationId_in_problem_details_with_observability_stack_registered()
+    {
+        // Regressão da change add-observability: a spec observability não reimplementa o
+        // CorrelationIdMiddleware nem o requisito de audit-trail que já o fixa - este teste prova
+        // que registrar health checks, métricas e tracing não quebra a propagação do
+        // correlationId no Problem Details de um erro de POST /loans.
+        var userId = await LoanTestHelpers.CreateUserAsync(_fixture);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/loans")
+        {
+            Content = JsonContent.Create(new { bookId = Guid.NewGuid(), userId }),
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        request.Headers.Add(CorrelationIdMiddleware.HeaderName, "loans-error-correlation-id");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("book-not-found", problem.GetProperty("type").GetString());
+        Assert.Equal("loans-error-correlation-id", problem.GetProperty("correlationId").GetString());
+    }
+
     private async Task<List<AuditEvent>> GetAuditEventsAsync(Guid loanId)
     {
         await using var scope = _fixture.Services.CreateAsyncScope();

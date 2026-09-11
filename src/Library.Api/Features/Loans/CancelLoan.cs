@@ -9,6 +9,7 @@ public static class CancelLoan
         AppDbContext dbContext,
         TimeProvider timeProvider,
         BookCache bookCache,
+        ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
         var loan = await dbContext.Loans.SingleOrDefaultAsync(l => l.Id == id, cancellationToken);
@@ -51,6 +52,13 @@ public static class CancelLoan
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Loan {LoanId} cancelled for book {BookId} and user {UserId}, correlation {CorrelationId}",
+            loan.Id,
+            loan.BookId,
+            loan.UserId,
+            correlationId);
 
         await bookCache.InvalidateAvailabilityAsync(loan.BookId, cancellationToken);
         await bookCache.InvalidateListAsync(cancellationToken);

@@ -17,6 +17,39 @@ public sealed class RequireIdempotencyKeyFilter : IEndpointFilter
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var httpContext = context.HttpContext;
+
+        // Nullable de propósito: os testes de unidade deste filtro invocam `InvokeAsync` com um
+        // `DefaultHttpContext` sem `RequestServices`, cobrindo só o caminho de header ausente
+        // (sem banco). Em produção o `AddSingleton<LoanMetrics>()` garante que nunca é nulo.
+        var loanMetrics = httpContext.RequestServices?.GetService<LoanMetrics>();
+        var stopwatch = Stopwatch.StartNew();
+
+        var result = await ExecuteAsync(context, next, loanMetrics);
+
+        stopwatch.Stop();
+        loanMetrics?.RecordCreateDuration(stopwatch.Elapsed.TotalMilliseconds, ClassifyOutcome(httpContext, result));
+
+        return result;
+    }
+
+    // O outcome da duração é classificado pelo resultado devolvido, não recalculado a partir das
+    // regras de negócio: o header de replay e o status 201 já são a fonte da verdade sobre o que
+    // aconteceu, sem duplicar a decisão que CreateLoan/HandleExistingKeyAsync já tomaram.
+    private static string ClassifyOutcome(HttpContext httpContext, object? result)
+    {
+        if (httpContext.Response.Headers.ContainsKey(ReplayedHeaderName))
+        {
+            return LoanMetrics.OutcomeReplayed;
+        }
+
+        return result is IStatusCodeHttpResult { StatusCode: StatusCodes.Status201Created }
+            ? LoanMetrics.OutcomeCreated
+            : LoanMetrics.OutcomeRejected;
+    }
+
+    private static async Task<object?> ExecuteAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next, LoanMetrics? loanMetrics)
+    {
+        var httpContext = context.HttpContext;
         var key = httpContext.Request.Headers[HeaderName].ToString();
 
         if (string.IsNullOrWhiteSpace(key))
@@ -48,7 +81,7 @@ public sealed class RequireIdempotencyKeyFilter : IEndpointFilter
                 return await ProcessReservedKeyAsync(context, next, dbContext, key, cancellationToken);
             }
 
-            var decision = await HandleExistingKeyAsync(dbContext, httpContext, key, requestHash, cancellationToken);
+            var decision = await HandleExistingKeyAsync(dbContext, httpContext, key, requestHash, loanMetrics, cancellationToken);
             if (decision is not RowVanished)
             {
                 return decision;
@@ -97,6 +130,7 @@ public sealed class RequireIdempotencyKeyFilter : IEndpointFilter
         HttpContext httpContext,
         string key,
         string requestHash,
+        LoanMetrics? loanMetrics,
         CancellationToken cancellationToken)
     {
         var existing = await dbContext.IdempotencyKeys
@@ -125,6 +159,7 @@ public sealed class RequireIdempotencyKeyFilter : IEndpointFilter
         }
 
         httpContext.Response.Headers[ReplayedHeaderName] = "true";
+        loanMetrics?.RecordIdempotentReplay();
         return Results.Content(responseBody.RootElement.GetRawText(), "application/json", statusCode: statusCode);
     }
 

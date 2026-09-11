@@ -1,9 +1,12 @@
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.AddJsonConsole();
+
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddApiDatabase(builder.Configuration);
 builder.Services.AddApiCaching(builder.Configuration);
 builder.Services.AddApiProblemDetails();
+builder.Services.AddApiObservability(builder.Configuration);
 builder.Services.AddValidation();
 builder.Services.Configure<LoanOptions>(builder.Configuration.GetSection(LoanOptions.SectionName));
 
@@ -30,6 +33,24 @@ app.Use(async (context, next) =>
     }
 
     await next(context);
+});
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = ObservabilityExtensions.WriteHealthCheckResponseAsync,
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable,
+    },
+    ResponseWriter = ObservabilityExtensions.WriteHealthCheckResponseAsync,
 });
 
 app.MapBooksEndpoints();

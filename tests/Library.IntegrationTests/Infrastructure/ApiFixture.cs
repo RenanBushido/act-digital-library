@@ -10,6 +10,12 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 
     private readonly RedisContainer _redis = new RedisBuilder("redis:8.10.1-alpine").Build();
 
+    // Exportador em memória exclusivo desta instância de fixture, registrado ao lado do OTLP de
+    // produção, só para os testes de tracing inspecionarem as activities exportadas.
+    public List<Activity> ExportedActivities { get; } = [];
+
+    public CapturingLoggerProvider Logs { get; } = new();
+
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync());
@@ -36,6 +42,12 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
                 ["ConnectionStrings:Redis"] = _redis.GetConnectionString(),
             });
         });
+
+        builder.ConfigureServices(services =>
+            services.ConfigureOpenTelemetryTracerProvider((_, tracerProviderBuilder) =>
+                tracerProviderBuilder.AddInMemoryExporter(ExportedActivities)));
+
+        builder.ConfigureLogging(logging => logging.AddProvider(Logs));
     }
 
     // O TestServer só serve HTTP; sem isso, `app.UseHttpsRedirection()` redireciona toda
@@ -55,6 +67,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     }
 
     public async Task StopRedisAsync() => await _redis.StopAsync();
+
+    public async Task StopPostgresAsync() => await _postgres.StopAsync();
 }
 
 [CollectionDefinition("Api")]
