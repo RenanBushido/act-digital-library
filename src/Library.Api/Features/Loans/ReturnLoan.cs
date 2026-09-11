@@ -8,6 +8,7 @@ public static class ReturnLoan
         [FromHeader(Name = "X-Actor")] string? actor,
         AppDbContext dbContext,
         TimeProvider timeProvider,
+        BookCache bookCache,
         CancellationToken cancellationToken)
     {
         var loan = await dbContext.Loans.SingleOrDefaultAsync(l => l.Id == id, cancellationToken);
@@ -50,6 +51,9 @@ public static class ReturnLoan
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        await bookCache.InvalidateAvailabilityAsync(loan.BookId, cancellationToken);
+        await bookCache.InvalidateListAsync(cancellationToken);
 
         var response = new LoanResponse(
             loan.Id,

@@ -8,8 +8,7 @@ public static class DeactivateBook
         [FromHeader(Name = "X-Actor")] string? actor,
         AppDbContext dbContext,
         TimeProvider timeProvider,
-        IDistributedCache cache,
-        ILogger<BooksLog> logger,
+        BookCache bookCache,
         CancellationToken cancellationToken)
     {
         var book = await dbContext.Books.SingleOrDefaultAsync(b => b.Id == id, cancellationToken);
@@ -46,8 +45,8 @@ public static class DeactivateBook
 
         if (wasActive)
         {
-            await CacheReadThrough.RemoveAsync(cache, logger, GetBookAvailability.CacheKey(id), cancellationToken);
-            await CacheReadThrough.RemoveAsync(cache, logger, ListBooks.CacheKey(PaginationDefaults.DefaultPage, PaginationDefaults.DefaultPageSize), cancellationToken);
+            await bookCache.InvalidateAvailabilityAsync(id, cancellationToken);
+            await bookCache.InvalidateListAsync(cancellationToken);
         }
 
         return TypedResults.NoContent();

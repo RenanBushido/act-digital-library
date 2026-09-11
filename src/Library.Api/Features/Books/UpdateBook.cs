@@ -16,8 +16,7 @@ public static class UpdateBook
         [FromHeader(Name = "X-Actor")] string? actor,
         AppDbContext dbContext,
         TimeProvider timeProvider,
-        IDistributedCache cache,
-        ILogger<BooksLog> logger,
+        BookCache bookCache,
         CancellationToken cancellationToken)
     {
         var book = await dbContext.Books.SingleOrDefaultAsync(b => b.Id == id, cancellationToken);
@@ -79,8 +78,8 @@ public static class UpdateBook
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await CacheReadThrough.RemoveAsync(cache, logger, GetBookAvailability.CacheKey(id), cancellationToken);
-        await CacheReadThrough.RemoveAsync(cache, logger, ListBooks.CacheKey(PaginationDefaults.DefaultPage, PaginationDefaults.DefaultPageSize), cancellationToken);
+        await bookCache.InvalidateAvailabilityAsync(id, cancellationToken);
+        await bookCache.InvalidateListAsync(cancellationToken);
 
         return TypedResults.Ok(BookResponse.From(book));
     }

@@ -5,6 +5,7 @@ global using Library.Api.Domain.Book;
 global using Library.Api.Domain.Loan;
 global using Library.Api.Domain.User;
 global using Library.Api.Features.Loans;
+global using Library.Api.Infrastructure.Caching;
 global using Library.UnitTests.TestSupport;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.AspNetCore.Http.HttpResults;

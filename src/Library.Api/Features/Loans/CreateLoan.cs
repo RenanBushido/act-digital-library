@@ -13,6 +13,7 @@ public static class CreateLoan
         TimeProvider timeProvider,
         IOptions<LoanOptions> loanOptions,
         IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
+        BookCache bookCache,
         CancellationToken cancellationToken)
     {
         if (request.BookId == Guid.Empty || request.UserId == Guid.Empty)
@@ -85,6 +86,9 @@ public static class CreateLoan
                 cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
+
+        await bookCache.InvalidateAvailabilityAsync(request.BookId, cancellationToken);
+        await bookCache.InvalidateListAsync(cancellationToken);
 
         return TypedResults.Created($"/loans/{loan.Id}", response);
     }

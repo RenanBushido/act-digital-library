@@ -14,8 +14,7 @@ public static class CreateBook
         [FromHeader(Name = "X-Actor")] string? actor,
         AppDbContext dbContext,
         TimeProvider timeProvider,
-        IDistributedCache cache,
-        ILogger<BooksLog> logger,
+        BookCache bookCache,
         CancellationToken cancellationToken)
     {
         Book book;
@@ -56,12 +55,7 @@ public static class CreateBook
             return BookErrors.IsbnDuplicate(request.Isbn).ToProblem();
         }
 
-        // Só a chave da página/tamanho padrão é invalidada; páginas não padrão expiram pelo TTL.
-        await CacheReadThrough.RemoveAsync(
-            cache,
-            logger,
-            ListBooks.CacheKey(PaginationDefaults.DefaultPage, PaginationDefaults.DefaultPageSize),
-            cancellationToken);
+        await bookCache.InvalidateListAsync(cancellationToken);
 
         return TypedResults.Created($"/books/{book.Id}", BookResponse.From(book));
     }
