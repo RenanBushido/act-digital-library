@@ -174,19 +174,48 @@ Em Docker e Kubernetes quem migra é o serviço `migrator` — mesma imagem, arg
 
 ## Observabilidade
 
-Middleware de correlação: aceita `X-Correlation-Id` do cliente ou gera um. O mesmo identificador entra no escopo de log, volta no header da resposta, alimenta o Problem Details e é gravado em `audit_events.correlation_id`.
+A correlação é entregue pelo middleware criado na change `add-domain-audit`: aceita `X-Correlation-Id` do cliente ou gera um; o mesmo identificador entra no escopo de log, volta no header da resposta, alimenta o Problem Details e é gravado em `audit_events.correlation_id`.
 
-Criar o `Meter` `Library.Loans`, com exatamente estes nomes:
+### Logs
+
+`ILogger` nativo, sem Serilog. Saída em JSON no console (`AddJsonConsole`), para que o
+coletor do orquestrador consuma sem parser próprio.
+
+Operações relevantes logam com identificadores de negócio como propriedades estruturadas,nunca interpoladas na mensagem: `LoanId`, `BookId`, `UserId`, `CorrelationId` e, quando
+houver, `AvailableAfter`.
+Log de negócio não substitui auditoria; a trilha é a tabela.
+
+### Metricas
+
+`Meter` `Library.Loans`, com exatamente estes nomes:
 
 - `library.loans.created` (Counter)
-- `library.loans.rejected` (Counter, tag `reason`: `unavailable` | `book_inactive` | `book_not_found`)
+- `library.loans.rejected` (Counter, tag `reason`: `unavailable` | `book_inactive` |
+  `book_not_found` | `user_not_found`). Réplica idempotente **não** é rejeição e não incrementa este contador.
 - `library.loans.idempotent_replays` (Counter)
-- `library.loans.create.duration` (Histogram, ms)
+- `library.loans.create.duration` (Histogram, ms, tag `outcome`: `created` | `replayed` |
+  `rejected`). Mede o **endpoint inteiro**, incluindo o filtro de idempotência. A tag existe
+porque criação e replay têm ordens de grandeza diferentes e misturá-las torna o percentil sem significado.
 
-Traces e métricas via OpenTelemetry com exportador OTLP.
+A métrica nativa `http.server.request.duration` continua ativa. A métrica própria não a
+substitui: existe para permitir o corte por `outcome`.
 
-Health: `/health/live` **não** consulta Postgres nem Redis (`Predicate = _ => false`).
-`/health/ready` consulta os dois: Postgres como `Unhealthy`, Redis como `Degraded`.
+### Traces
+
+OpenTelemetry com exportador OTLP. Instrumentar: ASP.NET Core, HttpClient, Npgsql,StackExchange.Redis e runtime. Excluir `/health/live` e `/health/ready` do tracing —
+com N réplicas e probes periódicos, eles dominam o volume sem informação útil.
+
+Endpoint OTLP por configuração (`OTEL_EXPORTER_OTLP_ENDPOINT`), nunca fixo no código.
+
+### Health checks
+
+- `/health/live` — não consulta Postgres nem Redis (`Predicate = _ => false`). Confirma apenas que o processo responde.
+- `/health/ready` — consulta as dependências marcadas com a tag `ready`:
+  - Postgres com `failureStatus: Unhealthy` → resposta **503**, o pod sai do balanceador.
+  - Redis com `failureStatus: Degraded` → resposta **200**, o pod continua servindo.
+
+`Degraded` devolvendo 200 é deliberado e não deve ser "corrigido": cache indisponível é degradação de desempenho, não indisponibilidade. Mapear `Degraded` para 503 tiraria todas
+as réplicas do balanceador ao mesmo tempo, transformando uma falha de cache em queda total.
 
 ## Testes
 
