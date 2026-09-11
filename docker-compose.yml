@@ -8,7 +8,7 @@ services:
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql"]
     healthcheck:
-      test: ["CMD", "pg_isready -U library -d library"]
+      test: ["CMD", "pg_isready", "-U", "library", "-d", "library"]
       interval: 5s
       timeout: 2s
       retries: 10
@@ -51,11 +51,13 @@ services:
       dockerfile: src/Library.Api/Dockerfile
     ports: ["8080:8080"]
     environment:
-      ASPNETCORE_ENVIRONMENT: "Development"
-      ASPNETCORE_HTTP_PORT: "8080"
+      # Sem ASPNETCORE_ENVIRONMENT: em Docker a decisão de migrar é só Database__MigrateOnStartup
+      # (false por padrão em appsettings.json); setar "Development" aqui carregaria
+      # appsettings.Development.json (MigrateOnStartup=true) dentro do contêiner.
+      ASPNETCORE_HTTP_PORTS: "8080"
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=library;Username=library;Password=${POSTGRES_PASSWORD:-localdev}"
       ConnectionStrings__Redis: "redis:6379"
-      OTEL_EXPORTER__OTLP__ENDPOINT: "http://otel:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4317"
       OTEL_SERVICE_NAME: "library-api"
     depends_on:
       postgres:

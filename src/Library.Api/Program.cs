@@ -1,3 +1,8 @@
+if (args.Contains("--migrate-only"))
+{
+    return await Program.RunMigrateOnlyAsync(args);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddJsonConsole();
@@ -58,6 +63,38 @@ app.MapLoansEndpoints();
 app.MapUsersEndpoints();
 app.MapAuditEventsEndpoints();
 
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    await using var migrationScope = app.Services.CreateAsyncScope();
+    await migrationScope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync(app.Lifetime.ApplicationStopping);
+}
+
 app.Run();
 
-public partial class Program;
+return 0;
+
+public partial class Program
+{
+    // Host reduzido, só com o suficiente para resolver `AppDbContext` - usado pelo modo
+    // `--migrate-only` e pelos testes de integração que exercitam esse modo diretamente.
+    internal static async Task<int> RunMigrateOnlyAsync(string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(args);
+        builder.Logging.AddJsonConsole();
+        builder.Services.AddApiDatabase(builder.Configuration);
+
+        await using var app = builder.Build();
+
+        try
+        {
+            await using var scope = app.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync(app.Lifetime.ApplicationStopping);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            app.Services.GetRequiredService<ILogger<Program>>().LogCritical(ex, "Migration failed");
+            return 1;
+        }
+    }
+}

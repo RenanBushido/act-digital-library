@@ -1,0 +1,24 @@
+# Job, não initContainer: precisa rodar uma única vez, independente de quantas réplicas
+# o Deployment declarar - um initContainer rodaria por pod, disparando a migration N vezes
+# em paralelo a cada rollout. Aplicar e aguardar concluir antes do Deployment:
+#   kubectl apply -f k8s/migrator-job.yaml
+#   kubectl wait --for=condition=complete --timeout=120s job/library-api-migrator
+#   kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: library-api-migrator
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrator
+          image: library-api:latest
+          command: ["dotnet", "Library.Api.dll", "--migrate-only"]
+          envFrom:
+            - configMapRef:
+                name: library-api-config
+            - secretRef:
+                name: library-api-secrets

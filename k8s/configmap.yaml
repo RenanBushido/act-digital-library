@@ -1,0 +1,14 @@
+# Configuração não sensível da aplicação, montada como variáveis de ambiente via envFrom
+# no Deployment e no Job do migrator (mesma imagem, mesma configuração de banco/cache/OTLP).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: library-api-config
+data:
+  ASPNETCORE_HTTP_PORTS: "8080"
+  Cache__AvailabilityTtlSeconds: "60"
+  Cache__ListTtlSeconds: "120"
+  # false: em Kubernetes quem aplica migration é o Job do migrator, nunca o startup da API.
+  Database__MigrateOnStartup: "false"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_SERVICE_NAME: "library-api"

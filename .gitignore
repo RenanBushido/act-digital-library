@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 # Prompts de Cada Proposal do SSD
 docs/
 test.sh
+
+# Secret real do Kubernetes: só k8s/secret.example.yaml (com placeholders) é versionado.
+k8s/secret.yaml

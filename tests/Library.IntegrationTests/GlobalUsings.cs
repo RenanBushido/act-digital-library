@@ -20,6 +20,7 @@ global using Microsoft.EntityFrameworkCore;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.Logging;
+global using Npgsql;
 global using StackExchange.Redis;
 global using System.Diagnostics;
 global using System.Net;
