@@ -35,6 +35,7 @@ app.Use(async (context, next) =>
 app.MapBooksEndpoints();
 app.MapLoansEndpoints();
 app.MapUsersEndpoints();
+app.MapAuditEventsEndpoints();
 
 app.Run();
 

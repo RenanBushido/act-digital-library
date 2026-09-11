@@ -2,7 +2,7 @@ namespace Library.Api.Domain.Audit;
 
 public sealed class AuditEvent
 {
-    public Guid Id { get; private set; }
+    public long Id { get; private set; }
     public string EntityType { get; private set; }
     public Guid EntityId { get; private set; }
     public string Action { get; private set; }
@@ -12,7 +12,6 @@ public sealed class AuditEvent
     public JsonDocument Payload { get; private set; }
 
     private AuditEvent(
-        Guid id,
         string entityType,
         Guid entityId,
         string action,
@@ -21,7 +20,6 @@ public sealed class AuditEvent
         string correlationId,
         JsonDocument payload)
     {
-        Id = id;
         EntityType = entityType;
         EntityId = entityId;
         Action = action;
@@ -60,6 +58,6 @@ public sealed class AuditEvent
             throw new DomainException("Correlation id cannot be empty.");
         }
 
-        return new AuditEvent(Guid.NewGuid(), entityType, entityId, action, actor, occurredAtUtc, correlationId, payload);
+        return new AuditEvent(entityType, entityId, action, actor, occurredAtUtc, correlationId, payload);
     }
 }

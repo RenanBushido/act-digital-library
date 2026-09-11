@@ -4,6 +4,8 @@ global using Library.Api.Domain.Book;
 global using Library.Api.Domain.Idempotency;
 global using Library.Api.Domain.Loan;
 global using Library.Api.Domain.User;
+global using Library.Api.Features.Audit;
+global using Library.Api.Features.Audit.Contracts;
 global using Library.Api.Features.Books;
 global using Library.Api.Features.Books.Contracts;
 global using Library.Api.Features.Loans;

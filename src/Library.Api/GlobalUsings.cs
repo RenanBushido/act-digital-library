@@ -1,6 +1,8 @@
 global using Library.Api.Common;
 global using Library.Api.Common.Errors;
 global using Library.Api.Common.Pagination;
+global using Library.Api.Features.Audit;
+global using Library.Api.Features.Audit.Contracts;
 global using Library.Api.Features.Books;
 global using Library.Api.Features.Books.Contracts;
 global using Library.Api.Features.Loans;

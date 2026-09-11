@@ -8,6 +8,13 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
 
         builder.HasKey(auditEvent => auditEvent.Id);
 
+        builder.Property(auditEvent => auditEvent.Id)
+            .ValueGeneratedOnAdd();
+
+        builder.HasIndex(auditEvent => new { auditEvent.EntityType, auditEvent.EntityId, auditEvent.OccurredAtUtc });
+
+        builder.HasIndex(auditEvent => auditEvent.CorrelationId);
+
         builder.Property(auditEvent => auditEvent.EntityType)
             .HasColumnName("entity_type")
             .IsRequired();

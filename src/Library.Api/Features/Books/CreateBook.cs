@@ -10,6 +10,8 @@ public static class CreateBook
 {
     public static async Task<IResult> HandleAsync(
         CreateBookRequest request,
+        HttpContext httpContext,
+        [FromHeader(Name = "X-Actor")] string? actor,
         AppDbContext dbContext,
         TimeProvider timeProvider,
         IDistributedCache cache,
@@ -26,7 +28,24 @@ public static class CreateBook
             return BookErrors.ValidationFailed(ex.Message).ToProblem();
         }
 
+        var resolvedActor = string.IsNullOrWhiteSpace(actor) ? "anonymous" : actor;
+        var correlationId = httpContext.Items[CorrelationIdMiddleware.ItemKey] as string ?? string.Empty;
+
+        using var payload = JsonSerializer.SerializeToDocument(new
+        {
+            after = new
+            {
+                title = book.Title,
+                isbn = book.Isbn.Value,
+                author = book.Author,
+                totalCopies = book.TotalCopies,
+                availableCopies = book.AvailableCopies,
+            },
+        });
+        var auditEvent = AuditEvent.Create("Book", book.Id, "BookCreated", resolvedActor, timeProvider.GetUtcNow(), correlationId, payload);
+
         dbContext.Books.Add(book);
+        dbContext.AuditEvents.Add(auditEvent);
 
         try
         {

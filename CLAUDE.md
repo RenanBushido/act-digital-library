@@ -77,16 +77,28 @@ Replay de requisição concluída devolve a resposta original, nunca 409. Os 409
 
 ## Auditoria
 
-Tabela `audit_events`:
-`entity_type`,
-`entity_id`,
-`action`,
-`actor`,
-`occurred_at_utc`,
-`correlation_id`,
-`payload` (jsonb com antes/depois dos campos relevantes — não a entidade inteira).
-Evento explícito, na **mesma** `SaveChangesAsync` do fato. Nunca via `ILogger`.
-Ações mínimas: `BookCreated`, `BookUpdated`, `BookDeactivated`, `LoanCreated`, `LoanReturned`, `LoanCancelled`. O ator vem do header `X-Actor` e na ausência `"anonymous"`.
+Tabela `audit_events`, append-only: `id` (bigint identity), `entity_type`, `entity_id`,`action`, `actor`, `occurred_at_utc` (timestamptz), `correlation_id`, `payload` (jsonb).
+Índices: `(entity_type, entity_id, occurred_at_utc)` e `(correlation_id)`.
+
+Evento explícito, gravado na **mesma** `SaveChangesAsync` ou transação do fato que o originou. Nunca via `ILogger`. Não usar interceptor de `SaveChanges`: ele não observa
+`ExecuteUpdateAsync`, que é o caminho usado nas alterações de quantidade.
+
+Ações: `BookCreated`, `BookUpdated`, `BookDeactivated`, `LoanCreated`, `LoanReturned`,`LoanCancelled`.
+
+Formato do `payload`, padronizado para ser consultável — apenas os campos que mudaram, nunca a entidade inteira:
+
+- criação → `{ "after": { ... } }`
+- alteração → `{ "before": { ... }, "after": { ... } }`
+- desativação → `{ "before": { "isActive": true }, "after": { "isActive": false } }`
+
+Para obter o estado anterior em operações que usam `ExecuteUpdate`, aplique o UPDATE com `RETURNING` e derive o anterior do delta conhecido. Não fazer `SELECT` antes do UPDATE.
+
+A entidade não expõe setters públicos e nenhum endpoint altera ou remove eventos. Em produção, o papel da aplicação não teria `UPDATE`/`DELETE` nessa tabela — declarado como evolução.
+
+`actor` vem do header `X-Actor`; ausente, `"anonymous"`. Sem autenticação no escopo.
+
+`correlation_id` vem do middleware de correlação: aceita `X-Correlation-Id` do cliente ou gera
+um, coloca no escopo de log, devolve no header de resposta e alimenta o Problem Details.
 
 ## Cache
 

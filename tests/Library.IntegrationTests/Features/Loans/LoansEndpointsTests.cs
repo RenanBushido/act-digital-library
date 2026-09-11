@@ -309,6 +309,31 @@ public class LoansEndpointsTests(ApiFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateLoan_writes_are_tagged_with_the_requests_correlation_id()
+    {
+        var book = await LoanTestHelpers.CreateBookAsync(_client);
+        var userId = await LoanTestHelpers.CreateUserAsync(_fixture);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/loans")
+        {
+            Content = JsonContent.Create(new { bookId = book.Id, userId }),
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        request.Headers.Add(CorrelationIdMiddleware.HeaderName, "loan-correlation-id");
+
+        var response = await _client.SendAsync(request);
+        var loan = await response.Content.ReadFromJsonAsync<LoanResponse>();
+
+        // O decremento de available_copies (ExecuteUpdateAsync) e a criação do Loan/AuditEvent
+        // são escritas distintas da mesma requisição; o evento é o único lugar onde o
+        // correlation_id fica gravado, então ele é o comprovante de que ambas compartilham o mesmo id.
+        Assert.Equal("loan-correlation-id", response.Headers.GetValues(CorrelationIdMiddleware.HeaderName).Single());
+        var events = await GetAuditEventsAsync(loan!.Id);
+        var auditEvent = Assert.Single(events, e => e.Action == "LoanCreated");
+        Assert.Equal("loan-correlation-id", auditEvent.CorrelationId);
+    }
+
+    [Fact]
     public async Task Successful_return_and_cancellation_are_audited()
     {
         var book = await LoanTestHelpers.CreateBookAsync(_client, totalCopies: 2);
@@ -327,6 +352,31 @@ public class LoansEndpointsTests(ApiFixture fixture) : IAsyncLifetime
 
         var cancelledEvents = await GetAuditEventsAsync(cancelled.Id);
         Assert.Contains(cancelledEvents, e => e.Action == "LoanCancelled");
+    }
+
+    [Fact]
+    public async Task Loan_lifecycle_events_are_still_recorded_and_readable_via_the_audit_query_after_the_id_migration()
+    {
+        // Regressão da change add-loan-concurrency: audit_events.Id migrou de Guid para bigint
+        // identity nesta change (add-domain-audit); os três eventos de empréstimo continuam
+        // sendo gravados e devem continuar legíveis via GET /audit-events com o novo tipo de Id.
+        var book = await LoanTestHelpers.CreateBookAsync(_client, totalCopies: 2);
+        var userId = await LoanTestHelpers.CreateUserAsync(_fixture);
+        var returned = await LoanTestHelpers.CreateActiveLoanAsync(_client, book.Id, userId);
+        var cancelled = await LoanTestHelpers.CreateActiveLoanAsync(_client, book.Id, userId);
+
+        await _client.PostAsync($"/loans/{returned.Id}/return", content: null);
+        await _client.PostAsync($"/loans/{cancelled.Id}/cancel", content: null);
+
+        var response = await _client.GetAsync("/audit-events?entityType=Loan");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<PagedAuditEventResponse>();
+
+        Assert.Contains(body!.Items, e => e.Action == "LoanCreated" && e.EntityId == returned.Id);
+        Assert.Contains(body.Items, e => e.Action == "LoanCreated" && e.EntityId == cancelled.Id);
+        Assert.Contains(body.Items, e => e.Action == "LoanReturned" && e.EntityId == returned.Id);
+        Assert.Contains(body.Items, e => e.Action == "LoanCancelled" && e.EntityId == cancelled.Id);
+        Assert.All(body.Items, e => Assert.True(long.Parse(e.Id) > 0));
     }
 
     [Fact]
