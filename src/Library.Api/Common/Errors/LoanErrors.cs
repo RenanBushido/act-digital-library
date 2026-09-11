@@ -23,6 +23,12 @@ public static class LoanErrors
     public static Error IdempotencyKeyRequired() =>
         new("idempotency-key-required", StatusCodes.Status400BadRequest, "The 'Idempotency-Key' header is required.");
 
+    public static Error IdempotencyKeyReuse() =>
+        new("idempotency-key-reuse", StatusCodes.Status422UnprocessableEntity, "The 'Idempotency-Key' header was reused with a different request body.");
+
+    public static Error RequestInFlight() =>
+        new("request-in-flight", StatusCodes.Status409Conflict, "A request with the same 'Idempotency-Key' is already being processed.");
+
     public static Error ValidationFailed(string detail) =>
         new("validation-failed", StatusCodes.Status400BadRequest, detail);
 }

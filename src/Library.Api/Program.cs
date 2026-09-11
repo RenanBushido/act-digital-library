@@ -20,6 +20,18 @@ app.UseExceptionHandler();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 
+// O argument binding de POST /loans lê o corpo antes do IEndpointFilter de idempotência rodar;
+// sem bufferizar aqui (antes da leitura), o filtro encontraria o stream já consumido.
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsPost(context.Request.Method) && context.Request.Path == "/loans")
+    {
+        context.Request.EnableBuffering();
+    }
+
+    await next(context);
+});
+
 app.MapBooksEndpoints();
 app.MapLoansEndpoints();
 app.MapUsersEndpoints();

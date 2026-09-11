@@ -29,21 +29,9 @@ public class RequireIdempotencyKeyFilterTests
         Assert.Equal("idempotency-key-required", problem.ProblemDetails.Type);
     }
 
-    [Fact]
-    public async Task InvokeAsync_with_header_present_calls_next()
-    {
-        var context = CreateInvocationContext(Guid.NewGuid().ToString());
-        var nextCalled = false;
-
-        var result = await _filter.InvokeAsync(context, _ =>
-        {
-            nextCalled = true;
-            return ValueTask.FromResult<object?>(TypedResults.Ok());
-        });
-
-        Assert.True(nextCalled);
-        Assert.IsAssignableFrom<Ok>(result);
-    }
+    // Com header presente, o filtro reserva a chave no Postgres (`INSERT ... ON CONFLICT`) antes de
+    // decidir se chama `next`. Esse caminho — e a dedup, o replay e a liberação da chave — exige banco
+    // real e é coberto por `LoanIdempotencyTests` (integração), não aqui.
 
     private static EndpointFilterInvocationContext CreateInvocationContext(string? idempotencyKeyHeader = null)
     {

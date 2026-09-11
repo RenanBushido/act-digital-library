@@ -1,6 +1,7 @@
 global using Library.Api.Common;
 global using Library.Api.Domain.Audit;
 global using Library.Api.Domain.Book;
+global using Library.Api.Domain.Idempotency;
 global using Library.Api.Domain.Loan;
 global using Library.Api.Domain.User;
 global using Library.Api.Features.Books;
@@ -16,7 +17,9 @@ global using Microsoft.EntityFrameworkCore;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
 global using System.Net;
+global using System.Net.Http.Headers;
 global using System.Net.Http.Json;
+global using System.Security.Cryptography;
 global using System.Text;
 global using System.Text.Json;
 global using Testcontainers.PostgreSql;

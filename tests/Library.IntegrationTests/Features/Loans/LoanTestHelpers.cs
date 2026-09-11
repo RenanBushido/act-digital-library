@@ -35,6 +35,17 @@ internal static class LoanTestHelpers
         return await client.SendAsync(request);
     }
 
+    public static async Task<HttpResponseMessage> PostLoanWithKeyAsync(HttpClient client, Guid bookId, Guid userId, string idempotencyKey)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/loans")
+        {
+            Content = JsonContent.Create(new { bookId, userId }),
+        };
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
+
+        return await client.SendAsync(request);
+    }
+
     public static async Task<LoanResponse> CreateActiveLoanAsync(HttpClient client, Guid bookId, Guid userId)
     {
         var response = await PostLoanAsync(client, bookId, userId);

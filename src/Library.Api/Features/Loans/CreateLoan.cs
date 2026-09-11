@@ -8,9 +8,11 @@ public static class CreateLoan
         CreateLoanRequest request,
         HttpContext httpContext,
         [FromHeader(Name = "X-Actor")] string? actor,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
         AppDbContext dbContext,
         TimeProvider timeProvider,
         IOptions<LoanOptions> loanOptions,
+        IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
         CancellationToken cancellationToken)
     {
         if (request.BookId == Guid.Empty || request.UserId == Guid.Empty)
@@ -68,8 +70,22 @@ public static class CreateLoan
         dbContext.AuditEvents.Add(auditEvent);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        var response = LoanResponse.From(loan);
+        using var responseBody = JsonSerializer.SerializeToDocument(response, jsonOptions.Value.SerializerOptions);
+
+        await dbContext.IdempotencyKeys
+            .Where(k => k.Key == idempotencyKey && k.Endpoint == RequireIdempotencyKeyFilter.Endpoint)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(k => k.State, IdempotencyState.Completed)
+                    .SetProperty(k => k.StatusCode, StatusCodes.Status201Created)
+                    .SetProperty(k => k.ResponseBody, responseBody)
+                    .SetProperty(k => k.ResourceId, loan.Id),
+                cancellationToken);
+
         await transaction.CommitAsync(cancellationToken);
 
-        return TypedResults.Created($"/loans/{loan.Id}", LoanResponse.From(loan));
+        return TypedResults.Created($"/loans/{loan.Id}", response);
     }
 }
