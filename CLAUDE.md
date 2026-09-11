@@ -58,6 +58,23 @@ Tabela `idempotency_keys`, PK `(key, endpoint)`, com `request_hash`, `state`, `s
 Repetição bem-sucedida devolve a resposta original com header `Idempotency-Replayed: true` — nunca 409.
 Implementado como `IEndpointFilter`, aplicado somente ao endpoint `POST /loans` — não como middleware global.
 
+Tabela `idempotency_keys`, PK `(key, endpoint)`, com `request_hash`, `state`
+(`InFlight` | `Completed`), `status_code`, `response_body`, `resource_id`, `created_at_utc`
+e `expires_at_utc` (janela de 24 h).
+
+`request_hash` = SHA-256 dos **bytes crus** do corpo da requisição mais o template da rota.
+Exige `Request.EnableBuffering()` antes da leitura. Nunca reserializar o DTO para hashear.
+
+## Divisão de responsabilidade — **não** tentar gravar a resposta no filtro
+
+- **Filtro** (`IEndpointFilter`, só em `POST /loans`): valida presença do header, calcula o hash, reserva a chave com `INSERT … ON CONFLICT DO NOTHING`. Se a chave já existia:
+  hash diferente → 422; `Completed` → devolve `status_code` e `response_body` armazenados com header `Idempotency-Replayed: true`; `InFlight` → 409 `request-in-flight`. Libera a chave se o handler falhar.
+- **Handler**: dentro da transação do empréstimo, serializa o DTO de resposta e grava `status_code`, `response_body` e `resource_id`, marcando a linha como `Completed`.
+
+Apenas respostas 2xx são armazenadas. Falha de negócio ou exceção libera a chave, para que uma nova tentativa legítima seja reavaliada — rejeição por indisponibilidade é dependente do tempo e não deve virar resultado permanente.
+
+Replay de requisição concluída devolve a resposta original, nunca 409. Os 409 da tabela de erros (`request-in-flight`) e o 422 (`idempotency-key-reuse`) são situações distintas de replay.
+
 ## Auditoria
 
 Tabela `audit_events`:
